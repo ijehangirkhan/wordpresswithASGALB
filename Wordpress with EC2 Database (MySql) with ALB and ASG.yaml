@@ -1,0 +1,466 @@
+AWSTemplateFormatVersion: 2010-09-09
+Description: This Template creates a Wordpress Server with Database using VPC.  
+
+Parameters:
+  VpcCIDR:
+    Default: 10.0.0.0/16
+    Description: Please enter IP range (CIDR notation) for this VPC
+    Type: String
+
+  PublicSubnet1CIDR:
+    Default: 10.0.1.0/24
+    Description: Please enter IP range (CIDR notation) for the public subnet 1
+    Type: String
+
+  PublicSubnet2CIDR:
+    Default: 10.0.2.0/24
+    Description: Please enter IP range (CIDR notation) for the public subnet 2
+    Type: String
+  
+  PublicSubnet3CIDR:
+    Default: 10.0.3.0/24
+    Description: Please enter IP range (CIDR notation) for the public subnet 3
+    Type: String
+  
+  PrivateSubnet1CIDR:
+    Default: 10.0.4.0/24
+    Description: Please enter IP range (CIDR notation) for the private subnet 1
+    Type: String
+  
+
+Metadata:
+  AWS::CloudFormation::Interface: 
+    ParameterGroups:
+      - 
+        Label: 
+          default: "VPC CIDR"
+        Parameters: 
+          - VpcCIDR
+      - 
+        Label: 
+          default: "Subnet CIDR"
+        Parameters:
+          - PublicSubnet1CIDR
+          - PublicSubnet2CIDR
+          - PublicSubnet3CIDR
+          - PrivateSubnet1CIDR
+  
+Resources:
+  JehangirCFVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: JehangirCFVPC
+
+  JehangirCFInternetGateway:
+    Type: AWS::EC2::InternetGateway
+    DependsOn: JehangirCFVPC
+    Properties:
+      Tags:
+        - Key: Name
+          Value: JehangirCFIG
+  
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref JehangirCFInternetGateway
+      VpcId: !Ref JehangirCFVPC
+
+  JehangirCFPublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet1CIDR
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref JehangirCFVPC
+      Tags:
+        - Key: Name
+          Value: JehangirCFPublicSubnet1
+
+  
+  JehangirCFPublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet2CIDR
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref JehangirCFVPC
+      Tags:
+        - Key: Name
+          Value: JehangirCFPublicSubnet2
+      
+  
+  JehangirCFPublicSubnet3:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [ 2, !GetAZs '' ]
+      CidrBlock: !Ref PublicSubnet3CIDR
+      MapPublicIpOnLaunch: true
+      VpcId: !Ref JehangirCFVPC
+      Tags:
+        - Key: Name
+          Value: JehangirCFPublicSubnet3
+      
+  
+  JehangirCFPublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref JehangirCFVPC
+      Tags:
+        - Key: Name
+          Value: JehangirCFPublicRouteTable
+      
+
+  JehangirCFPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: 
+      - JehangirCFInternetGateway
+      - InternetGatewayAttachment
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref JehangirCFInternetGateway
+      RouteTableId: !Ref JehangirCFPublicRouteTable
+  
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref JehangirCFPublicRouteTable
+      SubnetId: !Ref JehangirCFPublicSubnet1
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref JehangirCFPublicRouteTable
+      SubnetId: !Ref JehangirCFPublicSubnet2
+  
+  PublicSubnet3RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref JehangirCFPublicRouteTable
+      SubnetId: !Ref JehangirCFPublicSubnet3
+
+  JehangirCFPrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      MapPublicIpOnLaunch: false
+      VpcId: !Ref JehangirCFVPC
+      Tags:
+        - Key: Name
+          Value: JehangirCFPrivateSubnet1
+      
+  
+
+  JehangirCFNATGateway:
+   Type: AWS::EC2::NatGateway
+   Properties:
+     AllocationId: !GetAtt ElasticIPAddress.AllocationId
+     SubnetId: !Ref JehangirCFPublicSubnet1
+     Tags:
+     - Key: Name
+       Value: JehangirCFNATGateway
+  ElasticIPAddress:
+   Type: AWS::EC2::EIP
+   DependsOn: InternetGatewayAttachment
+   Properties:
+     Domain: JehangirCFVPC
+
+  JehangirCFPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref JehangirCFVPC
+      Tags:
+        - Key: Name
+          Value: JehangirCFPrivateRouteTable
+      
+
+  JehangirCFPrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref JehangirCFNATGateway
+      RouteTableId: !Ref JehangirCFPrivateRouteTable
+  
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref JehangirCFPrivateRouteTable
+      SubnetId: !Ref JehangirCFPrivateSubnet1
+
+
+  JehangirCFALBSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Enable HTTP access on port 80
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref JehangirCFVPC
+      Tags:
+        - Key: Name
+          Value: JehangirCFALBSG
+      
+
+      
+#Create Web Security Group
+  JehangirCFWebSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security Group for Web Server
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref JehangirCFVPC
+      Tags:
+        - Key: Name
+          Value: JehangirCFWebSG
+
+#Create Database Security Group
+  JehangirCFDBSG:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      GroupDescription: Security Group for Database Server
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !GetAtt JehangirCFWebSG.GroupId
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourceSecurityGroupId: !GetAtt JehangirCFWebSG.GroupId
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !GetAtt JehangirCFWebSG.GroupId
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          SourceSecurityGroupId: !GetAtt JehangirCFWebSG.GroupId
+      VpcId: !Ref JehangirCFVPC
+      Tags:
+        - Key: Name
+          Value: JehangirCFDBSG
+      
+
+  
+  JehangirCFTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: JehangirCFTargetGroup
+      Port: 80
+      Protocol: HTTP
+      TargetType: instance
+      VpcId: !Ref JehangirCFVPC
+  
+
+  JehangirCFALBListener:
+      Type: AWS::ElasticLoadBalancingV2::Listener
+      Properties:
+        DefaultActions:
+          - Type: forward
+            TargetGroupArn:
+              Ref: JehangirCFTargetGroup
+        LoadBalancerArn:
+            Ref: JehangirCFALB
+        Port: 80
+        Protocol: HTTP
+
+  JehangirCFALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: JehangirCFALB
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref JehangirCFALBSG
+      Subnets: 
+        - !Ref JehangirCFPublicSubnet1
+        - !Ref JehangirCFPublicSubnet2
+        - !Ref JehangirCFPublicSubnet3
+
+
+
+  JehangirCFWordpressLT:
+    Type: AWS::EC2::LaunchTemplate
+    DependsOn: JehangirCFDBServer
+    Properties: 
+      LaunchTemplateName: JehangirCFWordpressLT
+      LaunchTemplateData:
+        ImageId: ami-00399ec92321828f5
+        InstanceType: t2.micro
+        KeyName: JehangirKP
+        SecurityGroupIds: 
+          - !Ref JehangirCFWebSG
+        UserData:
+          Fn::Base64:
+            Fn::Sub:
+              - |
+                #!/bin/bash
+                set -x
+                apt update -y
+                apt upgrade -y
+                apt install apache2 -y
+                apt install php -y
+                apt install php-mysql -y
+                cd /var/www/html
+                wget https://wordpress.org/latest.zip
+                apt install unzip
+                unzip latest.zip
+                chown -R $USER:$USER /var/www
+                rm index.html
+                cp -r wordpress/* /var/www/html/
+                rm -rf wordpress
+                rm latest.zip
+                service apache2 restart
+                cp /var/www/html/wp-config-sample.php  /var/www/html/wp-config.php
+                sed -i -e 's/database_name_here/mydatabase/g' /var/www/html/wp-config.php
+                sed -i -e 's/username_here/admin/g' /var/www/html/wp-config.php
+                sed -i -e 's/password_here/wordpress/g' /var/www/html/wp-config.php
+                sed -i -e "s/localhost/${DBIP}/g" /var/www/html/wp-config.php
+                service apache2 restart
+              - DBIP: !GetAtt JehangirCFDBServer.PrivateIp
+  
+
+
+  JehangirCFASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      AutoScalingGroupName: JehangirCFASG
+      MinSize: "2"
+      MaxSize: "3"
+      DesiredCapacity: "2"
+      HealthCheckGracePeriod: 200
+      LaunchTemplate:
+        LaunchTemplateId: !Ref JehangirCFWordpressLT
+        Version: !GetAtt JehangirCFWordpressLT.LatestVersionNumber
+      VPCZoneIdentifier:
+        - !Ref JehangirCFPublicSubnet1
+        - !Ref JehangirCFPublicSubnet2
+        - !Ref JehangirCFPublicSubnet3
+      TargetGroupARNs:
+        - !Ref JehangirCFTargetGroup
+      Tags:
+        - Key: Name
+          Value: JehangirCFASG
+          PropagateAtLaunch: true
+
+
+# Create Database Server
+  JehangirCFDBServer: 
+    Type: AWS::EC2::Instance
+    DependsOn: 
+      - JehangirCFDBSG
+      - JehangirCFNATGateway
+    Properties:
+      KeyName: "JehangirKP"
+      ImageId: ami-00399ec92321828f5
+      InstanceType: t2.micro
+      NetworkInterfaces: 
+        - AssociatePublicIpAddress: false
+          DeviceIndex: "0"
+          GroupSet: 
+            - !Ref JehangirCFDBSG
+          SubnetId: !Ref JehangirCFPrivateSubnet1
+      UserData: 
+        Fn::Base64:
+          !Sub |
+          #!/bin/bash
+          set -x
+          ping -c 4 google.com
+          apt update -y
+          apt upgrade -y
+          apt install mysql-server -y
+          service mysql stop
+          cd /etc
+          chmod -R 777 mysql
+          cd mysql
+          cd mysql.conf.d
+          sed -i 's/127.0.0.1/0.0.0.0/g' mysqld.cnf
+          cd
+          service mysql start
+          mysql <<EOF
+          CREATE USER 'admin'@'%' IDENTIFIED BY 'wordpress';
+          GRANT ALL PRIVILEGES ON *.* TO 'admin'@'%';
+          flush privileges;
+          exit
+          EOF
+          mysql -u admin -pwordpress -e 'create database mydatabase;'
+      Tags:
+        - Key: Name
+          Value: JehangirCFDBServer
+
+Outputs:
+# Export VPC ID
+  JehangirCFVPC:
+    Description: VPC ID
+    Export:
+      Name: !Sub ${AWS::StackName}-JehangirCFVPC
+    Value: !Ref JehangirCFVPC
+
+# Export Public Subnet 1 
+  JehangirCFPublicSubnet1:
+    Description: Public Subnet 1 ID
+    Export:
+      Name: !Sub ${AWS::StackName}-JehangirCFPublicSubnet1
+    Value: !Ref JehangirCFPublicSubnet1
+
+# Export Public Subnet 2 
+  JehangirCFPublicSubnet2:
+    Description: Public Subnet 2 ID
+    Export:
+      Name: !Sub ${AWS::StackName}-JehangirCFPublicSubnet2
+    Value: !Ref JehangirCFPublicSubnet2
+
+# Export Public Subnet 3 
+  JehangirCFPublicSubnet3:
+    Description: Public Subnet 3 ID
+    Export:
+      Name: !Sub ${AWS::StackName}-JehangirCFPublicSubnet3
+    Value: !Ref JehangirCFPublicSubnet3
+
+# Export Private Subnet 1 
+  JehangirCFPrivateSubnet1:
+    Description: Private Subnet 1 ID
+    Export:
+      Name: !Sub ${AWS::StackName}-JehangirCFPrivateSubnet1
+    Value: !Ref JehangirCFPrivateSubnet1
+
+
+# Export ALB Security Group ID
+  JehangirCFALBSG:
+    Description: Application Load Balancer Security Group ID
+    Export:
+      Name: !Sub ${AWS::StackName}-JehangirCFALBSG
+    Value: !Ref JehangirCFALBSG
+
+
+# Export WebServer Security Group ID
+  JehangirCFWebSG:
+    Description: WebServer Security Group ID
+    Export:
+      Name: !Sub ${AWS::StackName}-JehangirCFWebSG
+    Value: !Ref JehangirCFWebSG
+
+# Export DataBase Security Group ID
+  JehangirCFDBSG:
+    Description: DataBase Security Group ID
+    Export:
+      Name: !Sub ${AWS::StackName}-JehangirCFDBSG
+    Value: !Ref JehangirCFDBSG
