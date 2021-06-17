@@ -303,7 +303,7 @@ Resources:
     Properties: 
       LaunchTemplateName: JehangirCFWordpressLT
       LaunchTemplateData:
-        ImageId: ami-00399ec92321828f5
+        ImageId: ami-09e67e426f25ce0d7 # Virginia Region
         InstanceType: t2.micro
         KeyName: JehangirKP
         SecurityGroupIds: 
@@ -370,7 +370,7 @@ Resources:
       - JehangirCFNATGateway
     Properties:
       KeyName: "JehangirKP"
-      ImageId: ami-00399ec92321828f5
+      ImageId: ami-09e67e426f25ce0d7 # Virginia Region
       InstanceType: t2.micro
       NetworkInterfaces: 
         - AssociatePublicIpAddress: false
